@@ -33,70 +33,23 @@ export async function getDailyPageViews() {
     prevDayViewsChangePercent,
   };
 }
-
-/**
- * Fetches total page views using Plausible's v2 Stats API.
- */
-export async function getTotalPageViews() {
-  const url = `${process.env.PLAUSIBLE_BASE_URL}/api/v2/query`;
-  
-  // Construct the payload. In this example, we're asking for total "pageviews"
-  // for the entire period (you can adjust the date_range as needed).
-  const payload = {
-    site_id: process.env.PLAUSIBLE_SITE_ID,
-    metrics: ["pageviews"],
-    date_range: "all"  // or "7d", "30d", etc.
-  };
-
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${process.env.PLAUSIBLE_API_KEY}`,
-    },
-    body: JSON.stringify(payload)
-  });
-
+async function getTotalPageViews() {
+  const response = await fetch(
+    `${PLAUSIBLE_BASE_URL}/v1/stats/aggregate?site_id=${PLAUSIBLE_SITE_ID}&metrics=pageviews`,
+    {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${PLAUSIBLE_API_KEY}`,
+      },
+    }
+  );
   if (!response.ok) {
     throw new Error(`HTTP error! Status: ${response.status}`);
   }
+  const json = (await response.json()) as PageViewsResult;
 
-  const json = await response.json();
-  // Assuming that the API returns a single row of results (an array with one element),
-  // and that the "pageviews" metric is the first in the metrics array:
-  const totalPageviews = json.results[0]?.metrics[0];
-  return totalPageviews;
-}
-
-/**
- * Fetches pageviews for a specific day.
- */
-export async function getPageviewsForDate(date: string) {
-  const url = `${process.env.PLAUSIBLE_BASE_URL}/api/v2/query`;
-  
-  // When querying for a specific date, use a custom date range with the same start and end dates.
-  const payload = {
-    site_id: process.env.PLAUSIBLE_SITE_ID,
-    metrics: ["pageviews"],
-    date_range: [date, date]
-  };
-
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${process.env.PLAUSIBLE_API_KEY}`,
-    },
-    body: JSON.stringify(payload)
-  });
-
-  if (!response.ok) {
-    throw new Error(`HTTP error! Status: ${response.status}`);
-  }
-  
-  const json = await response.json();
-  // Extract the pageviews from the returned results.
-  return json.results[0]?.metrics[0] || 0;
+  return json.results.pageviews.value;
 }
 
 async function getPrevDayViewsChangePercent() {
@@ -123,6 +76,19 @@ async function getPrevDayViewsChangePercent() {
     change = ((pageViewsYesterday - pageViewsDayBeforeYesterday) / pageViewsDayBeforeYesterday) * 100;
   }
   return change.toFixed(0);
+}
+
+async function getPageviewsForDate(date: string) {
+  const url = `${PLAUSIBLE_BASE_URL}/v1/stats/aggregate?site_id=${PLAUSIBLE_SITE_ID}&period=day&date=${date}&metrics=pageviews`;
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: headers,
+  });
+  if (!response.ok) {
+    throw new Error(`HTTP error! Status: ${response.status}`);
+  }
+  const data = (await response.json()) as PageViewsResult;
+  return data.results.pageviews.value;
 }
 
 export async function getSources() {
